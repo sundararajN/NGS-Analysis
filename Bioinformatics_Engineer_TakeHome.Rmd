@@ -1,0 +1,464 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+
+#####################################################################################
+## This Program file was written using RStudio Console
+#####################################################################################
+
+library(stringr) # Loading Packages in R
+
+
+```
+
+```{r}
+
+#######################################################################################
+# OBJECTIVE: to identify candidate guide (Protospacer) sequences with input DNA 
+# sequence and Protospacer-Adjacent Motif and length of the PAM sequence as parameters
+#######################################################################################
+
+# DESCRIPTION: The function Retrieve_Protospacer_Seq retrieves protospacer sequences 
+# based on the infed DNA sequence,PAM sequence length and also based on 
+# the PAM sequence.Default PAM is kept as NGG and isnt passed as a parameter.
+# Three scenarios were considered to retrieve the protospacer sequences listed below:
+# - Presence of multiple NGG's (AGG|TGG|CGG) PAM sequences in input DNA.
+# - Presence of single NGG's (AGG|TGG|CGG) PAM sequence in input DNA.
+# - Presence of Single set of GGG's PAM sequence in input DNA.
+# - Presence of multiple GGG's PAM sequences in input DNA.
+# - detecting if there's any protospacer sequence in input DNA.
+
+########################################################################################
+
+```
+
+```{r}
+
+########### Sample input DNA datasets used to test the function #################### 
+
+sequence1 <- "TGATCTACTAGAGACTACTAACGGGGATACATAG"
+sequence2 <- "ATGGGGGACTAGTACAGGTGGAGGATCGATGG"
+sequence3 <- "ATGCATGCATGCGGGGTGGGGGATGCATGCGGGGGGGGTGG"
+sequence4 <- "ATGCATGCATGC"
+sequence5 <- "ATGCCGGAGGTGGAGGTGGAGGCGGGGGGG"
+PAM_Length <- 20
+PAM_Sequence <- "NGG" #default used
+
+#####################################################################################
+
+```
+
+```{r}
+
+#####################################################################################
+## Retrieve_Protospacer_Seq: The function outputs the retrieved protospacer sequences
+## from the input DNA, PAM length and from where the PAM sequence is located.
+## OUTPUT: a character vector of unique protospacer sequences if present (or)
+##         printed message if none
+
+#####################################################################################
+
+Retrieve_Protospacer_Seq <- function(input_Seq,PAM_Len){
+  
+######## creating variables, empty lists and derived variables ######################
+#  Variable N is declared as A,T,C Nucleotides in this case and G nucloetide will be 
+#  considered seperately.
+  
+######################################################################################  
+  
+  N <- c("A","T","C")
+  protospacer_seq_ls <- list()
+  Multiple_N_List <- list()
+  Multiple_N_Extract <- list()
+  extracted_Multiple_N_Seq <- list()
+  Multiple_p_seq <- list()
+  GGG_List <- list()
+  GGG_Mult_list <- list()
+  Multiple_GGG_Extract <- list()
+  Multiple_GGG_data_count <- list()
+  No_of_extra_Mult_GGGs <- list()
+
+  
+######################################################################################
+  
+##### - Presence of multiple NGG's (AGG|TGG|CGG) PAM sequences in input DNA. ########
+
+## EXPLANATION: When Multiple NGG's are spread across the input sequence, A condition 
+#was implied initially to execute the statements that selects the situation where the
+#sequence comprises of multiple NGG's.looping upon each of the nucleotides(A,G,C),In 
+#each case,string split was done and the split sequences was considered.The split 
+#sequence is attached to the Nucleotides segment and further the corresponding 
+#protospacer sequence was extracted using str_sub function according to its PAM length 
+#and stored in a list.As the loop is executed each time, the first split 
+#sequence with nucleotide segment created is attached to the previous split sequence 
+#of the input sequence with nucleotide segment.
+  
+#######################################################################################  
+  
+  
+  if(any(str_count(input_Seq,pattern = paste0(N,"GG")) > 1)) {
+  
+  for (i in 1 : length(N)) {
+    
+  if( str_count(input_Seq,pattern = paste0(N[i],"GG")) > 1 ){
+    
+  for (j in 1 : str_count(input_Seq,pattern = paste0(N[i],"GG"))) {
+  
+    if (j == 1){
+      
+      Multiple_N_Extract[[j]] <- paste0(str_split(input_Seq,pattern = paste0(N[i],"GG"))[[1]][j],paste0(N[i],"GG"))
+
+      extracted_Multiple_N_Seq[[j]] <- str_sub(Multiple_N_Extract[[j]],-(str_length(Multiple_N_Extract[[j]]))-3,-4)
+
+      if( str_count(extracted_Multiple_N_Seq[[j]]) >= PAM_Len ){
+        
+      Multiple_p_seq[[j]] <- str_sub(extracted_Multiple_N_Seq[[j]],-PAM_Len,-1)
+      Multiple_N_List[[length(Multiple_N_List)+1]] <- Multiple_p_seq[[j]]
+      
+      
+      }
+      
+      else {
+        
+        
+        Multiple_N_List[[length(Multiple_N_List)+1]] <- NA
+        
+        
+      }
+      
+      
+    }
+    
+  else {
+    
+  Multiple_N_Extract[[j]] <- paste0(Multiple_N_Extract[[j-1]],str_split(input_Seq,pattern = paste0(N[i],"GG"))
+  [[1]][j],paste0(N[i],"GG"))
+
+  if( str_length(str_sub(Multiple_N_Extract[[j]],-str_length(Multiple_N_Extract[[j]])-3,-4)) >= PAM_Len ){
+    
+  Multiple_p_seq[[j]] <- str_sub(Multiple_N_Extract[[j]],(-PAM_Len-3),-4)
+  Multiple_N_List[[length(Multiple_N_List)+1]] <- Multiple_p_seq[[j]]
+  
+   }
+  
+      else{
+    
+    
+        Multiple_N_List[[length(Multiple_N_List)+1]] <- NA
+    
+    
+       }
+  
+      }
+      
+    }    
+    
+  } 
+    
+    protospacer_seq_ls[[length(protospacer_seq_ls)+1]] <- unlist(Multiple_N_List)
+    
+    
+ }
+  
+}
+  
+######################################################################################
+  
+#####  Presence of single NGG's (AGG|TGG|CGG) PAM sequence in input DNA. ###########
+  
+  ## EXPLANATION: for Single NGG's scenario,protospacer sequence is extracted the
+  #same way as that for multiple NGG'S sequences except for a few modifications.A 
+  #condition was implied initially to execute the statements that selects the 
+  #situation where the sequence comprises of single NGG's.looping upon the 
+  #nucleotides (A,G,C)in each case,string extract was done to extract the sequences 
+  #consisting of the corresponding nucleotides.For each extracted sequences, the    
+  #protospacer sequence was extracted checking if the resulting sequence length was   
+  #greater than or equal to the sequence length of which the protospacer sequences 
+  #had to be extracted.The results were wrapped in a list.
+
+########################################################################################    
+  
+  
+if(any(str_count(input_Seq,pattern = paste0(N,"GG")) <= 1)){
+  
+for (i in 1 : length(N)) {
+  
+ if(!is.na(str_extract(input_Seq,pattern = paste0("[A|G|T|C]+",N[i],"GG")))) {
+  
+    N_str_extract <- str_extract(input_Seq,pattern = paste0("[A|G|T|C]+",N[i],"GG"))
+    Extracted_N_seq <- str_sub(N_str_extract,-(str_length(N_str_extract))-3,-4)
+    
+    if((str_length(Extracted_N_seq) > PAM_Len) | (str_length(Extracted_N_seq) == PAM_Len)) {
+    
+       protospacer_N_seq <- str_sub(Extracted_N_seq,-PAM_Len,-1)
+       protospacer_seq_ls[[length(protospacer_seq_ls)+1]] <- protospacer_N_seq
+       
+  
+    }
+    
+    else{
+      
+      protospacer_seq_ls[[length(protospacer_seq_ls)+1]] <- NA
+      
+      
+    }
+    
+     
+   }
+    
+  }    
+    
+ }
+  
+  else if(startsWith(input_Seq,"AGG") | startsWith(input_Seq,"TGG") | startsWith(input_Seq,"CGG")){
+    
+    protospacer_seq_ls[[length(protospacer_seq_ls)+1]] <- NA
+    
+    
+  }
+  
+############################################################################################ 
+  
+########### - Presence of Single set of GGG's PAM sequence in input DNA ################
+
+##EXPLANATION: protospacer sequence for GGG set is extracted the same way as that of 
+#other NGG'S sequences except for a few changes.A condition was implied initially to 
+#select the situation where the sequence comprises of single set of GGG's and additional   
+#GGG's.For each set of additional G nucleotide apart from the standard GGG PAM sequence, 
+#the count of the additional G's were computed and sequence was created for each set of 
+#G's present.The protospacer sequence was extracted from each sequence created based on 
+#the length inputted using str_sub after checking if the sequence length is lesser or 
+#equal to the inputted length of which the protospacer sequence is created.In the other 
+#scenario, where only GGG is present,The sequence containing GGG is extracted using 
+#str_extract.The string is further extracted without GGG using str_sub and after checking 
+#if the sequence length of which protospacer sequence has to be extracted is greater than 
+#the infed length,The protospacer sequence is extracted and stored in the final list.
+  
+###########################################################################################
+  
+if( length(str_split(input_Seq,pattern = "GGG+")[[1]]) == 2 ){
+  
+  GGG_Data <- unlist(str_extract_all(input_Seq,pattern = "GG+"))
+  GGG_data_count <- str_count(GGG_Data)
+  GGG_data_count <- GGG_data_count[!(GGG_data_count == 1 | GGG_data_count == 2)]
+  
+  if(!is.na(GGG_data_count) | length(GGG_data_count) > 0 ){
+    
+    No_of_extra_GGGs <- abs(GGG_data_count - 3)
+
+    if( No_of_extra_GGGs != 0 ){
+    
+    for (j in 0 : No_of_extra_GGGs) {
+      
+      GGG_extract <- str_extract(input_Seq,pattern =  paste0("[A|G|T|C]+[A|T|C]",paste0("GGG",str_dup("G",j))))
+      extracted_GGG_Seq <- str_sub(GGG_extract,-str_length(GGG_extract)-3,-4)
+
+      if((str_length(extracted_GGG_Seq) > PAM_Len) | (str_length(extracted_GGG_Seq) == PAM_Len)) {
+        
+      protospacer_GGG_seq <- str_sub(extracted_GGG_Seq,-PAM_Len,-1)
+      GGG_List[[length(GGG_List)+1]] <- protospacer_GGG_seq
+      
+      
+      }
+      
+      else{
+        
+        GGG_List[[length(GGG_List)+1]] <- NA
+        
+        
+      }
+      
+  
+    }
+      
+      protospacer_seq_ls[[length(protospacer_seq_ls)+1]] <- unlist(GGG_List)
+      
+      
+  }
+    
+    else if(No_of_extra_GGGs == 0){
+      
+      GGG_extract <- str_extract(input_Seq,pattern = "[A|G|T|C]+GGG")
+      extracted_GGG_Seq <- str_sub(GGG_extract,-(str_length(GGG_extract))-3,-4)
+      
+      if((str_length(extracted_GGG_Seq) > PAM_Len) | (str_length(extracted_GGG_Seq) == PAM_Len)) {
+        
+      protospacer_GGG_seq <- str_sub(extracted_GGG_Seq,-PAM_Len,-1)
+      protospacer_seq_ls[[length(protospacer_seq_ls)+1]] <- protospacer_GGG_seq
+      
+      }
+      
+      else{
+        
+        protospacer_seq_ls[[length(protospacer_seq_ls)+1]] <- NA
+        
+        
+      }
+      
+    }
+  
+   }
+  
+  }
+  
+##########################################################################################
+  
+########### # - Presence of multiple GGG's PAM sequences in input DNA ##################
+
+#EXPLANATION: For detecting multiple GGG's PAM sequence to retrieve protospacer   
+#sequences str_split is used to split the different GGGG's after implying a condition to   
+#execute this situation.For each of the extracted GGG's PAM sequences,A sequence  
+#containing the split sequence and the extracted GGG's are combined.Initially for the  
+#first split sequence,A sequence is created from first split seq and extracted GGG's and   
+#the protospacer seq is extracted from the resulting sequence according to the infed    
+#length.from the second set of GGG'S PAM detected, the first sequence created is added 
+#along.Str_sub is used to extract the protospacer sequence without the ending GGG's and 
+#after the resulting sequence length is checked if its greater or equal to the infed PAM   
+#length, the protospacer sequence is extracted for its infed length and results are   
+#stored in a list
+  
+#########################################################################################
+  
+
+ if(length(str_split(input_Seq,pattern = "GGG+")[[1]]) > 2 ){
+  
+  for (k in 1 : str_count(input_Seq,pattern = "GGG+")) {
+    
+  if(k == 1){
+    
+  Multiple_GGG_Extract[[k]] <- paste0(str_split(input_Seq,pattern = "GGG+")[[1]][k],str_extract_all(input_Seq,pattern = "GGG+")[[1]][k])
+  
+  }
+    
+  else{
+    
+    Multiple_GGG_Extract[[k]] <- paste0(Multiple_GGG_Extract[[k-1]],str_split(input_Seq,pattern = "GGG+")[[1]][k],str_extract_all(input_Seq,pattern = "GGG+")[[1]][k])
+    
+  }
+    
+  Multiple_GGG_data_count[[k]] <- str_count(str_extract_all(input_Seq,pattern = "GGG+")[[1]][k])
+
+  if(!is.na(Multiple_GGG_data_count[[k]]) & length(Multiple_GGG_data_count[[k]]) > 0 ){
+    
+    No_of_extra_Mult_GGGs[[k]] <- abs(Multiple_GGG_data_count[[k]] - 3)
+
+    if( No_of_extra_Mult_GGGs[[k]] != 0 ){
+      
+      for (j in 0 : No_of_extra_Mult_GGGs[[k]]){
+      
+      GGG_Single_extract <- str_extract(Multiple_GGG_Extract[[k]],pattern =  paste0("[A|G|T|C]+[A|T|C]",paste0("GGG",str_dup("G",j))))
+      prot_GGG_seq <- str_sub(GGG_Single_extract,-(str_length(GGG_Single_extract))-3,-4)
+
+        if((str_length(prot_GGG_seq) > PAM_Len) | (str_length(prot_GGG_seq) == PAM_Len)) {
+          
+          protospacer_Multiple_GGG_sequence <- str_sub(prot_GGG_seq,-PAM_Len,-1)
+          GGG_Mult_list[[length(GGG_Mult_list)+1]] <- protospacer_Multiple_GGG_sequence
+          
+          
+        }
+        
+         else{
+          
+           GGG_Mult_list[[length(GGG_Mult_list)+1]] <- NA
+          
+          
+         }
+        
+        
+        }
+      
+      }
+      
+    }
+  
+  }
+  
+  protospacer_seq_ls[[length(protospacer_seq_ls)+1]] <- unlist(GGG_Mult_list)
+  
+  
+}
+  
+ else {
+    
+    
+    protospacer_seq_ls[[length(protospacer_seq_ls)+1]] <- NA
+    
+    
+ } 
+  
+########## - detecting if theres any protospacer sequences in input DNA #############
+
+### EXPLANATION: The entire outcome is stored in a list based upon the conditions
+#implied for each scenario.The list is unlisted and the NA elements are removed and
+#the results are stored in a new variable. based upon the results, if its length is   
+#equal to 0,a message stating that there is no protospacer sequence is printed and     
+#returned and if the length is greater then zero,the results are returned              
+#as a character vector
+  
+#####################################################################################
+
+  proto_seq_data <- unlist(protospacer_seq_ls)
+  proto_seq_NA_removed_data <- proto_seq_data[!is.na(proto_seq_data)]
+  
+
+ if( length(proto_seq_NA_removed_data) > 0 ){
+  
+  return(unique(proto_seq_NA_removed_data))
+    
+  } 
+  
+  else if(length(proto_seq_NA_removed_data) == 0) {
+    
+    return("The infed input DNA doesn't have any protospacer sequence")
+    
+  } 
+
+}
+
+
+```
+
+```{r}
+
+##################### Testing the created function #######################################
+
+#### EXPLANATION: Sample data set created is passed along with other parameters into the 
+##   function and tested for appropriate results.All the situations has been considered
+##   seperately used in sequence datasets and tested accordingly.
+
+##########################################################################################
+
+protospacer_Seq1 <- Retrieve_Protospacer_Seq(sequence1,PAM_Length) #example stated in the take home
+protospacer_Seq2 <- Retrieve_Protospacer_Seq(sequence2,PAM_Length)
+protospacer_Seq3 <- Retrieve_Protospacer_Seq(sequence3,PAM_Length)
+protospacer_Seq4 <- Retrieve_Protospacer_Seq(sequence4,PAM_Length)
+protospacer_Seq5 <- Retrieve_Protospacer_Seq(sequence5,PAM_Length)
+
+
+```
+
+```{r}
+
+
+## Printing out the results
+
+protospacer_Seq1
+protospacer_Seq2
+protospacer_Seq3
+protospacer_Seq4
+protospacer_Seq5
+
+```
+
+```{r}
+
+## CONCLUSION: PAM sequence has been considered as "NGG".Most of the common occurences(situations) in which the input DNA sequence could be has been considered in the function logic for instance like multiple GGG | AGG | TGG | CGG occurences and also repetitive GGGG's occurences.The function could be more complex if a lot more other scenarios are considered for different PAM sequences.The function could also be modified accordingly where Protospacer sequences for a single nucleotide PAM's could be retrieved.  
+
+
+```
+
